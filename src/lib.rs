@@ -87,13 +87,36 @@ pub struct Rect {
 
 pub fn crop<T: AsRef<[u8]>>(input: T, rect: Rect, output: &mut Vec<u8>) {
     let png = Png::new(input.as_ref());
-    let parts = png.parts();
+    let (header, chunks) = png.parts();
 
     // Write header to output
-    // Iterate over chunks
-        // Drop the part if needed
-        // Crop the part
-        // Write part to output
+    header
+        .as_ref()
+        .iter()
+        .cloned()
+        .for_each(|b| output.push(b));
+
+    // Write chunks to output
+    chunks
+        .filter_map(|chunk| {
+            if let false = can_output(&chunk) {
+                let cropped = crop_chunk(chunk, &rect);
+                Some(cropped)
+            } else {
+                None
+            }
+        })
+        .for_each(|chunk| {
+            output.extend_from_slice(chunk.as_ref());
+        });
+}
+
+fn can_output(chunk: &Chunk) -> bool {
+    true
+}
+
+fn crop_chunk<'a>(chunk: Chunk<'a>, _rect: &Rect) -> Chunk<'a> {
+    chunk
 }
 
 #[cfg(test)]
