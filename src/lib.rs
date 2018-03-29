@@ -100,17 +100,8 @@ pub fn crop<T: AsRef<[u8]>>(input: T, rect: Rect, output: &mut Vec<u8>) {
 
     // Write chunks to output
     chunks
-        .filter_map(|chunk| {
-            if can_output(&chunk) {
-                let cropped = crop_chunk(&chunk, &rect);
-                Some(chunk)
-            } else {
-                None
-            }
-        })
-        .for_each(|chunk| {
-            output.extend_from_slice(chunk.as_ref());
-        });
+        .filter(|chunk| can_output(&chunk))
+        .for_each(|chunk| crop_chunk(&chunk, &rect, output));
     output.shrink_to_fit();
 }
 
@@ -118,8 +109,22 @@ fn can_output(chunk: &Chunk) -> bool {
     chunk.typ() & 0x0F == 0x0F
 }
 
-fn crop_chunk<'a>(_chunk: &Chunk<'a>, _rect: &Rect) -> Vec<u8> {
-    vec!()
+const IHDR: u32 = 0x01;
+
+fn crop_chunk<'a>(chunk: &Chunk<'a>, rect: &Rect, output: &mut Vec<u8>) {
+    match chunk.typ() {
+        IHDR => ihdr(chunk, rect, output),
+        IDAT => idat(chunk, rect, output),
+        _ => output.extend_from_slice(chunk.as_ref())
+    }
+}
+
+fn ihdr<'a>(chunk: &Chunk<'a>, rect: &Rect, output: &mut Vec<u8>) {
+    output.extend_from_slice(chunk.as_ref());
+}
+
+fn idat<'a>(chunk: &Chunk<'a>, rect: &Rect, output: &mut Vec<u8>) {
+    output.extend_from_slice(chunk.as_ref());
 }
 
 #[cfg(test)]

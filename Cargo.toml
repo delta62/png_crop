@@ -1,5 +1,5 @@
 [package]
-name = "png-crop"
+name = "png_crop"
 version = "0.1.0"
 authors = ["Sam Noedel <sam.noedel@gmail.com>"]
 
