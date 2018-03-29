@@ -23,33 +23,44 @@ impl<'a> PngChunks<'a> {
     }
 }
 
-struct Chunk<'a> {
-    siz: usize,
-    typ: u32,
-    dat: &'a [u8],
-    crc: u32
-}
-
-impl<'a> AsRef<[u8]> for Chunk<'a> {
-    fn as_ref(&self) -> &[u8] {
-        &[ 0x01 ]
-    }
-}
-
 impl<'a> Iterator for PngChunks<'a> {
     type Item = Chunk<'a>;
 
     fn next(&mut self) -> Option<Chunk<'a>> {
-        let siz = BigEndian::read_u32(&self.data[self.cur..]) as usize;
-        self.cur += 4;
-        let typ = BigEndian::read_u32(&self.data[self.cur..]);
-        self.cur += 4;
-        let dat = &self.data[self.cur..self.cur + siz];
-        self.cur += siz;
-        let crc = BigEndian::read_u32(&self.data[self.cur..]);
-        self.cur += 4;
+        let size = BigEndian::read_u32(&self.data[self.cur..]) as usize;
+        let dat = &self.data[self.cur..self.cur + size];
+        self.cur += size + 12;
+        Some(Chunk { dat })
+    }
+}
 
-        Some(Chunk { siz, typ, dat, crc })
+struct Chunk<'a> {
+    dat: &'a [u8]
+}
+
+impl<'a> Chunk<'a> {
+    fn size(&self) -> usize {
+        BigEndian::read_u32(self.dat) as usize
+    }
+
+    fn data(&self) -> &[u8] {
+        let size = self.size();
+        &self.dat[8..size]
+    }
+
+    fn crc(&self) -> u32 {
+        let size = self.size();
+        BigEndian::read_u32(&self.dat[8 + size..])
+    }
+
+    fn typ(&self) -> u32 {
+        BigEndian::read_u32(&self.dat[4..])
+    }
+}
+
+impl<'a> AsRef<[u8]> for Chunk<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.dat
     }
 }
 
@@ -67,10 +78,22 @@ impl<'a> Png<'a> {
     }
 }
 
-pub fn crop<T: AsRef<[u8]>>(input: T, output: &mut Vec<u8>) {
-    let bytes = input.as_ref();
-    let png = Png::new(bytes);
+pub struct Rect {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32
+}
+
+pub fn crop<T: AsRef<[u8]>>(input: T, rect: Rect, output: &mut Vec<u8>) {
+    let png = Png::new(input.as_ref());
     let parts = png.parts();
+
+    // Write header to output
+    // Iterate over chunks
+        // Drop the part if needed
+        // Crop the part
+        // Write part to output
 }
 
 #[cfg(test)]
