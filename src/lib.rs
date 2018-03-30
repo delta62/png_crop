@@ -1,5 +1,7 @@
 extern crate byteorder;
 use byteorder::{BigEndian,ByteOrder};
+use std::fmt::Display;
+use std::fmt;
 
 struct Png<'a> {
     data: &'a [u8]
@@ -45,11 +47,15 @@ impl<'a> Iterator for PngChunks<'a> {
     type Item = Chunk<'a>;
 
     fn next(&mut self) -> Option<Chunk<'a>> {
+        if self.cur == self.data.len() {
+            return None
+        }
+
         let mut size = BigEndian::read_u32(&self.data[self.cur..]) as usize;
         size += 12;
-        let dat = &self.data[self.cur..self.cur + size];
+        let data = &self.data[self.cur..self.cur + size];
         self.cur += size;
-        Some(Chunk { dat })
+        Some(Chunk::new(data))
     }
 }
 
@@ -58,13 +64,17 @@ struct Chunk<'a> {
 }
 
 impl<'a> Chunk<'a> {
+    fn new(data: &'a [u8]) -> Chunk {
+        Chunk { dat: data }
+    }
+
     fn size(&self) -> usize {
         BigEndian::read_u32(self.dat) as usize
     }
 
     fn data(&self) -> &[u8] {
         let size = self.size();
-        &self.dat[8..size]
+        &self.dat[8..size + 8]
     }
 
     fn crc(&self) -> u32 {
@@ -74,6 +84,13 @@ impl<'a> Chunk<'a> {
 
     fn typ(&self) -> u32 {
         BigEndian::read_u32(&self.dat[4..])
+    }
+}
+
+impl<'a> Display for Chunk<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let type_string = String::from_utf8_lossy(&self.dat[4..8]);
+        write!(f, "Chunk {{ Size: {}, Type: {}, CRC: {} }}", self.size(), type_string, self.crc())
     }
 }
 
@@ -99,13 +116,18 @@ impl Rect {
 pub fn crop<T: AsRef<[u8]>>(input: T, rect: &Rect, output: &mut Vec<u8>) {
     let png = Png::new(input.as_ref());
     png.validate();
+    println!("PNG header validated");
     let (header, chunks) = png.parts();
 
     // Write header to output
     output.extend_from_slice(header.as_ref());
+    println!("Output header {:?}", output);
 
     // Write chunks to output
     chunks
+        .inspect(|chunk| {
+            println!("{}", chunk);
+        })
         .filter(|chunk| can_output(&chunk))
         .for_each(|chunk| crop_chunk(&chunk, &rect, output));
     output.shrink_to_fit();

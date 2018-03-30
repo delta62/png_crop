@@ -17,6 +17,6 @@ fn main() {
     let mut output_bytes = vec!();
     crop(input_bytes, &bounds, &mut output_bytes);
 
-    let mut out_file = File::open(out_path).expect("Unable to open output file");
+    let mut out_file = File::create(out_path).expect("Unable to create output file");
     out_file.write_all(&output_bytes).expect("Unable to write PNG file");
 }
