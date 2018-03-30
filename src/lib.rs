@@ -15,7 +15,7 @@ impl<'a> Png<'a> {
     }
 
     fn validate(&self) {
-        assert_eq!(self.data, PngHeader.as_ref());
+        assert_eq!(&self.data[..8], PngHeader.as_ref());
     }
 }
 
@@ -90,7 +90,13 @@ pub struct Rect {
     h: u32
 }
 
-pub fn crop<T: AsRef<[u8]>>(input: T, rect: Rect, output: &mut Vec<u8>) {
+impl Rect {
+    pub fn new(x: u32, y: u32, w: u32, h: u32) -> Rect {
+        Rect { x, y, w, h }
+    }
+}
+
+pub fn crop<T: AsRef<[u8]>>(input: T, rect: &Rect, output: &mut Vec<u8>) {
     let png = Png::new(input.as_ref());
     png.validate();
     let (header, chunks) = png.parts();
@@ -110,12 +116,13 @@ fn can_output(chunk: &Chunk) -> bool {
 }
 
 const IHDR: u32 = 0x01;
+const IDAT: u32 = 0x02;
 
 fn crop_chunk<'a>(chunk: &Chunk<'a>, rect: &Rect, output: &mut Vec<u8>) {
     match chunk.typ() {
         IHDR => ihdr(chunk, rect, output),
         IDAT => idat(chunk, rect, output),
-        _ => output.extend_from_slice(chunk.as_ref())
+        _    => output.extend_from_slice(chunk.as_ref())
     }
 }
 
